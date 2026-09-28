@@ -1,142 +1,115 @@
-# Ledger Final
+#High-throughput Ledger 
 
-High-throughput financial ledger microservice example and learning project.
+> High-throughput, event-driven financial ledger microservice built with **Java, Spring Boot, PostgreSQL, Redis, Kafka, and Docker**.
 
-This repository is both a learning resource and a small microservice reference implementation demonstrating Java, Spring Boot, PostgreSQL, Redis, Kafka, Docker, and related patterns for building a ledger system with a focus on correctness.
+A learning and portfolio project focused on **financial correctness, idempotency, concurrency, resilience, and scalable transaction processing**.
 
----
+## Architecture
 
-## What we're building
-
-- A set of services (at least `ledger-service` and `api-gateway`) that implement a financial ledger and transfer APIs.
-- Demonstrates principles important for payment systems: monetary correctness (BigDecimal), idempotency, optimistic concurrency, event sourcing patterns, and durable storage in PostgreSQL.
-
-Why it matters: correctness and reliability are more important than raw performance for ledger systems. This project is designed to teach and demonstrate safe patterns for money and transaction processing.
-
----
-
-## Project layout
-
-- `ledger-service/` - core ledger microservice (Spring Boot)
-- `api-gateway/` - lightweight gateway that forwards transfer requests for demos
-- `db-init/` - initial SQL used to create DB schema for local runs
-- `docker-compose.yml` - quick local composition of required services
-- `k8s/` - Kubernetes manifests (if you want to run on k8s)
-- `Documentations/` - additional design docs, runbooks, and guides
-
----
-
-## Tech stack
-
-- Java 17+ (project uses Maven wrapper)
-- Spring Boot
-- PostgreSQL (durable source of truth)
-- Redis (cache/coordination only)
-- Kafka (asynchronous messaging/eventing)
-- Docker & Docker Compose
-
----
-
-## Financial safety rules (important)
-
-- Do not use `double` or `float` for monetary values. Use `BigDecimal` consistently.
-- Treat PostgreSQL as the durable source of truth; Redis is a cache/coordination layer only.
-- Preserve idempotency guarantees and prefer DB constraints for correctness-critical rules.
-- Prefer append-only event records and avoid destructive history updates.
-
-See `Documentations/redis_integration.md` and other docs for detailed rationale and patterns used in this project.
-
----
-
-## Prerequisites
-
-- Git
-- Java JDK 17+ installed and on PATH
-- Maven (or use the included Maven Wrapper `mvnw` / `mvnw.cmd`)
-- Docker & Docker Compose (for local full-stack runs)
-
-On Windows PowerShell you can verify:
-
-```powershell
-java -version
-.\mvnw -v
-docker --version
-docker-compose --version
+```text
+Client
+  │
+  ▼
+API Gateway ───► Redis
+  │              │
+  │              └─ Idempotency
+  ▼
+Kafka
+  │
+  ▼
+Ledger Service
+  │
+  ▼
+PostgreSQL
+  ├─ Account Balances
+  └─ Immutable Ledger Entries
 ```
 
----
+## Key Features
 
-## Quick start (local development)
+* **Event-driven processing** with Kafka
+* **Redis-based idempotency** using `SETNX`
+* **Pessimistic locking** with `SELECT ... FOR UPDATE`
+* Atomic financial transactions using **PostgreSQL ACID transactions**
+* Immutable ledger entries for an **auditable transaction history**
+* `BigDecimal` for accurate monetary calculations
+* **Docker Compose** for local infrastructure
+* Designed for **high-throughput and reliable transaction processing**
 
-1. Build all modules (use the Maven wrapper):
+## Tech Stack
 
-```powershell
-Set-Location -Path "C:\Users\Chamod\Documents\Personal Projects\Ledger Final";
-.\mvnw clean package -DskipTests
+**Java 17+ · Spring Boot · PostgreSQL · Redis · Kafka · Docker · Maven**
+
+## Transaction Flow
+
+```text
+POST /transfers
+      │
+      ▼
+Redis Idempotency Check
+      │
+      ▼
+Kafka Event
+      │
+      ▼
+Ledger Service
+      │
+      ├── Lock Accounts
+      ├── Validate Balance
+      ├── Update Balances
+      └── Create Ledger Entries
+               │
+               ▼
+            Commit
 ```
 
-2. Start supporting infrastructure with Docker Compose (Postgres, Redis, Kafka):
+## Project Structure
 
-```powershell
+```text
+├── api-gateway/       # Request handling & idempotency
+├── ledger-service/    # Core ledger processing
+├── db-init/           # Database initialization
+├── k8s/               # Kubernetes manifests
+├── Documentations/    # Design documentation
+├── docker-compose.yml
+└── pom.xml
+```
+
+## Getting Started
+
+### Prerequisites
+
+* Java 17+
+* Docker & Docker Compose
+* Git
+
+### Build
+
+```bash
+./mvnw clean package -DskipTests
+```
+
+### Start Infrastructure
+
+```bash
 docker-compose up --build
 ```
 
-3. Start services (you can run the jars in `ledger-service/target` and `api-gateway/target` or use your IDE):
+### Run Tests
 
-```powershell
-java -jar .\ledger-service\target\ledger-service-1.0.0.jar
-java -jar .\api-gateway\target\api-gateway-1.0.0.jar
+```bash
+./mvnw -pl ledger-service test
 ```
 
-4. Use the API gateway's /transfer endpoint (see `api-gateway/src/main/resources/application.properties` for port) to exercise transfer flows.
+## Reliability Focus
 
----
+The project explores production-oriented patterns including **idempotency, concurrency control, Kafka retries, failure handling, database consistency, Redis optimization, and scalable event-driven processing**.
 
-## Running tests
+## Future Improvements
 
-Run unit and integration tests for a module with:
-
-```powershell
-.\mvnw -pl ledger-service test
-```
-
-Integration tests may require Docker services (Postgres, Kafka) running.
-
----
-
-## Important development notes
-
-- Controllers should be thin; put business logic into services.
-- Use DTOs for request/response shapes and mapping at service boundaries.
-- Prefer constructor injection in Spring components.
-- Preserve idempotency: design idempotency keys for transfer endpoints and store them durably.
-- Use DB transactions and optimistic concurrency where appropriate.
-
----
-
-## Helpful commands
-
-- Build (project root): `./mvnw clean package -DskipTests`
-- Run local infra: `docker-compose up --build`
-- Run a single module tests: `./mvnw -pl ledger-service test`
-
----
-
-## Contributing
-
-This project is primarily a learning tool. If you want to contribute:
-
-1. Open an issue describing what you want to change.
-2. Create a topic branch, implement tests for new behaviors, and open a PR.
-
-Please write tests for correctness-critical behavior (transfers, idempotency, concurrency scenarios, DB constraints).
-
----
-
-## Next steps and learning path
-
-- Read `Documentations/implementation_guide.md` for design decisions.
-- Experiment by adding more extensive integration tests that simulate duplicate messages, retries, and concurrency.
-- Explore transactional outbox patterns for safe Kafka publishing from DB transactions.
-
-
+* Transactional Outbox
+* Optimistic Concurrency Control
+* Kafka Dead Letter Queue
+* Observability and distributed tracing
+* Transaction status API
+* Kubernetes deployment
